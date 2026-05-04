@@ -13,7 +13,7 @@ uvicorn[standard]==0.32.1
 pydantic==2.10.4
 pydantic-settings==2.7.0
 
-# === Azure SDK ===
+# === Azure SDK (default cloud provider) ===
 azure-identity==1.19.0
 azure-keyvault-secrets==4.9.0
 azure-servicebus==7.13.0
@@ -23,6 +23,21 @@ azure-monitor-query==1.4.1
 azure-mgmt-security==7.0.0
 azure-mgmt-securityinsight==2.0.0b2
 azure-storage-blob==12.24.0
+
+# === AWS SDK (when GLOBALSEC_CLOUD_PROVIDER=aws) ===
+aioboto3==13.3.0
+boto3==1.35.85
+
+# === GCP SDK (when GLOBALSEC_CLOUD_PROVIDER=gcp) ===
+google-cloud-secret-manager==2.21.1
+google-cloud-pubsub==2.27.1
+google-cloud-storage==2.19.0
+google-auth==2.36.0
+
+# === Cloud-neutral SDKs (when GLOBALSEC_CLOUD_PROVIDER=kubernetes) ===
+hvac==2.3.0                                      # HashiCorp Vault
+aiokafka==0.12.0                                 # Apache Kafka
+miniopy-async==1.21.1                            # MinIO S3-compatible
 
 # === Microsoft Graph (for Entra ID, Defender, Purview, Intune, Sentinel) ===
 msgraph-sdk==1.13.0

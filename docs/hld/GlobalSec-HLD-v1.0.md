@@ -53,8 +53,8 @@ The platform delivers comprehensive security coverage across **17 security domai
 
 | Principle | Description |
 |-----------|-------------|
-| **Azure-native first** | Built on a centralized Azure subscription using Microsoft Cloud Adoption Framework (CAF) landing zones |
-| **Best-of-breed integration** | Each control domain uses the Gartner Magic Quadrant leader, integrated via Azure-native connectors |
+| **Cloud-agnostic, Azure-preferred** | Level 2 multi-cloud capable architecture — same agent code runs on Azure, AWS, GCP, or bare Kubernetes via runtime configuration. Reference deployment is Azure to maximize M365 E5 entitlements. See `docs/architecture/CLOUD-PORTABILITY.md` |
+| **Best-of-breed integration** | Each control domain uses the Gartner Magic Quadrant leader. Tools are vendor-neutral where possible (CrowdStrike, Wiz, Tenable, Cloudflare run identically across clouds) |
 | **Centralized SOC, regional reach** | Central SOC in the Middle East owns global tooling and incident response; Regional Security Leads provide local coordination |
 | **Regional autonomy with global oversight** | Agents process data within regional boundaries to meet residency requirements; metadata flows to global control plane |
 | **Zero Trust by default** | Microsoft Entra ID + Conditional Access + PIM enforces identity-based access at every boundary |
@@ -164,6 +164,7 @@ The platform must demonstrate compliance with regulations across all six operati
 
 | Decision | Rationale |
 |----------|-----------|
+| **Cloud abstraction layer** (SecretProvider, EventBus, ObjectStore, IdentityProvider) | Enables Level 2 multi-cloud — same agent code runs on Azure / AWS / GCP / bare K8s via `GLOBALSEC_CLOUD_PROVIDER` env var |
 | **Two-tier orchestration** (global + regional) | Local data residency compliance + global correlation |
 | **Single Entra ID tenant** with regional Entra B2B | One identity plane = one source of truth; regional B2B for partners |
 | **Microsoft Sentinel global instance + regional Log Analytics workspaces** | Cross-workspace queries enable global SOC view while keeping logs regional |
@@ -1001,13 +1002,58 @@ This translates to:
 
 ---
 
+## 17.5 Cloud Portability (Level 2 Multi-Cloud)
+
+GlobalSec implements **Level 2 cloud-agnostic architecture**: the same agent code can deploy to Azure, AWS, GCP, or bare Kubernetes by changing one environment variable. The reference deployment is Azure to maximize Microsoft 365 E5 entitlements, but every component is portable.
+
+### What's Abstracted
+
+| Abstraction | Purpose | Azure Impl | AWS Impl | GCP Impl | K8s-Neutral |
+|-------------|---------|------------|----------|----------|-------------|
+| `SecretProvider` | Secret store | Azure Key Vault | AWS Secrets Manager | GCP Secret Manager | HashiCorp Vault |
+| `EventBus` | Pub/sub | Azure Service Bus | SNS + SQS | Pub/Sub | Apache Kafka |
+| `ObjectStore` | Blob storage | Azure Blob | S3 | GCS | MinIO |
+| `IdentityProvider` | Workload identity | Managed Identity | IRSA | Workload ID | SA Token |
+
+Selected at runtime via `GLOBALSEC_CLOUD_PROVIDER={azure|aws|gcp|kubernetes}`.
+
+### Tooling Portability Strategy
+
+Most security tooling is **already cloud-neutral** (CrowdStrike, Wiz, Tenable, Cloudflare, Darktrace, Recorded Future, Snyk, Checkmarx, OneTrust, Veeam) — same tool regardless of underlying cloud.
+
+Cloud-specific tooling has documented alternatives. For example:
+- **Sentinel** (Azure) ↔ **Splunk** (cloud-neutral) ↔ **Chronicle** (GCP) ↔ **Security Lake** (AWS)
+- **Defender for O365** (Azure) ↔ **Proofpoint Enterprise** (cloud-neutral)
+- **Purview DLP** (Azure) ↔ **Forcepoint DLP** (cloud-neutral)
+
+### Cost Implications
+
+- **Azure (recommended):** ~$17M/year (full M365 E5 leverage)
+- **AWS or GCP:** ~$20M/year (additional licensing for Microsoft tool replacements)
+- **K8s-neutral:** ~$21M/year (operational overhead of self-managed Vault/Kafka/MinIO)
+
+The ~$3-4M annual premium for non-Azure deployment is the cost of avoiding Microsoft lock-in.
+
+### Why Level 2 (not Level 3)
+
+| Level | Description | GlobalSec Position |
+|-------|-------------|--------------------|
+| Level 2 | **Same code, configurable cloud, one cloud per deployment** | ✅ |
+| Level 3 | Active multi-cloud — workloads run on multiple clouds simultaneously | Out of scope |
+
+Level 3 (active multi-cloud) would require ~40-60% more annual operational cost without proportional benefit unless mandated by regulation. Not pursued.
+
+> Full architecture detail in `docs/architecture/CLOUD-PORTABILITY.md`.
+
+---
+
 ## 18. Risk Register & Assumptions
 
 ### 18.1 Top Risks
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| Vendor lock-in (Microsoft) | Medium | High | Multi-cloud-ready agent design; data export procedures |
+| Vendor lock-in (Microsoft) | Low (mitigated) | High | Level 2 cloud-agnostic architecture — see §17.5 + `docs/architecture/CLOUD-PORTABILITY.md` |
 | Tooling integration complexity | High | Medium | Phased rollout; integration test-first approach |
 | Talent acquisition (55 security FTEs) | High | High | Long lead-time hiring; MSSP supplementation considered |
 | Regional regulatory change | Medium | High | Compliance/GRC agent + legal review quarterly |
@@ -1020,7 +1066,8 @@ This translates to:
 
 ### 18.2 Key Assumptions
 
-- Centralized Azure subscription is **already established** with appropriate landing zones
+- **Cloud platform:** Azure is the recommended reference deployment (assumed for cost model). AWS, GCP, and bare Kubernetes are also fully supported via the Level 2 cloud abstraction layer (see `docs/architecture/CLOUD-PORTABILITY.md`)
+- Azure landing zones (or AWS Control Tower / GCP Foundations) **already established** with appropriate landing zones
 - M365 E5 licensing is **already deployed** to all 115K users
 - ExpressRoute connectivity is **already in place** for major offices
 - Network connectivity between regions exists (VPN or ExpressRoute Global Reach)

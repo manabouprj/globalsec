@@ -16,7 +16,8 @@ GlobalSec is an enterprise-scale, AI-agent-driven security platform designed for
 - **115,000+ employees** across **75 countries**
 - **6 geographic regions:** APAC · Africa · Americas · Europe · GCC · Middle East
 - **Centralized SOC** based in the Middle East with **Regional Security Leads** in each region
-- **Centralized Azure subscription** as the cloud foundation
+- **Cloud-agnostic (Level 2)** — runs on Azure, AWS, GCP, or bare Kubernetes via runtime config
+- **Reference deployment: Azure** to maximize Microsoft 365 E5 entitlements
 - **Best-of-breed tooling** selected from Gartner Magic Quadrant Leaders per domain
 
 The platform comprises **~40 specialised AI agents** organised across **17 security domains**, orchestrated by **Paperclip** (multi-region deployment), surfaced through a **Single Pane of Glass (SPOG) dashboard**, and operated via conversational interfaces on **Microsoft Teams** (primary) and **Slack** (secondary).
@@ -45,12 +46,23 @@ The platform comprises **~40 specialised AI agents** organised across **17 secur
 
 ### Foundational Principles
 
-1. **Azure-native first** — built on a single Azure Commercial subscription using Microsoft Cloud Adoption Framework landing zones
-2. **Best-of-breed integration** — Gartner MQ Leaders per domain integrated via Azure-native connectors
+1. **Cloud-agnostic, Azure-preferred (Level 2)** — same agent code runs on Azure, AWS, GCP, or bare Kubernetes via runtime config; Azure is the recommended reference to maximize M365 E5 value
+2. **Best-of-breed integration** — Gartner MQ Leaders per domain; tools are vendor-neutral where possible (CrowdStrike, Wiz, Tenable, Cloudflare, Darktrace run identically across clouds)
 3. **Centralized SOC with regional reach** — Central SOC owns global tooling; Regional Security Leads coordinate with BUs
 4. **Regional autonomy with global oversight** — agents process data within regional boundaries; only metadata flows to global plane
 5. **Zero Trust by default** — Entra ID + Conditional Access + PIM at every boundary
 6. **Compliance multiplexing** — every event tagged with applicable frameworks (GDPR, UAE PDPL, HIPAA, etc.)
+
+### Cloud Portability — Level 2 Multi-Cloud Capable
+
+```bash
+GLOBALSEC_CLOUD_PROVIDER=azure        # default — recommended for M365 E5 value
+GLOBALSEC_CLOUD_PROVIDER=aws          # full AWS deployment
+GLOBALSEC_CLOUD_PROVIDER=gcp          # full GCP deployment
+GLOBALSEC_CLOUD_PROVIDER=kubernetes   # bare Kubernetes — Vault + Kafka + MinIO
+```
+
+Cloud-coupled concerns (secrets, events, blob storage, workload identity) are abstracted behind interfaces in `agents/cloud/`. See [`docs/architecture/CLOUD-PORTABILITY.md`](docs/architecture/CLOUD-PORTABILITY.md) for the full multi-cloud architecture, tool alternatives matrix, and migration patterns.
 
 ---
 
