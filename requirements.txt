@@ -5,7 +5,7 @@
 # === Core HTTP / async ===
 aiohttp==3.13.4
 httpx==0.28.1
-requests==2.32.3
+requests==2.33.0
 
 # === Web framework (Paperclip orchestrator + agent health endpoints) ===
 fastapi==0.115.6
