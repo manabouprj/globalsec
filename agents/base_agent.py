@@ -1,17 +1,26 @@
 """
-GlobalSec Base Agent
-====================
+GlobalSec Base Agent — Cloud-Agnostic (Level 2 Multi-Cloud Capable)
+====================================================================
 
-Abstract base class for all GlobalSec agents. Inherit from this and implement
-`run()`, `collect_metrics()`, and `process_event()`.
+Abstract base class for all GlobalSec agents.
+
+Cloud agnosticism design:
+- Agents NEVER directly import azure.*, boto3, or google.cloud.*
+- All cloud-coupled concerns flow through the abstractions in `agents.cloud`:
+    SecretProvider, EventBus, ObjectStore, IdentityProvider
+- The active cloud is selected at runtime via GLOBALSEC_CLOUD_PROVIDER env var
+  (azure | aws | gcp | kubernetes)
+- The same agent code runs unchanged on Azure / AWS / GCP / bare K8s
 
 Multi-region awareness:
-- Each agent reads GLOBALSEC_REGION env var (apac/emea/amer/gcc/africa/me/global)
-- Secrets are fetched from the region-appropriate Azure Key Vault
-- Events are published to regional or global Service Bus topics
+- Each agent reads GLOBALSEC_REGION env var
+- Secrets, events, and storage are scoped per region by namespace conventions
+- Events are published to regional or global topics based on DEPLOYMENT_MODE
 
 Author: Alvin, Security Architect
 """
+
+from __future__ import annotations
 
 import asyncio
 import json
@@ -24,10 +33,20 @@ from datetime import datetime, timezone
 from typing import Any
 
 import aiohttp
-from azure.identity.aio import DefaultAzureCredential
-from azure.keyvault.secrets.aio import SecretClient
-from azure.servicebus.aio import ServiceBusClient
-from azure.servicebus import ServiceBusMessage
+
+from agents.cloud import (
+    CloudConfig,
+    EventBus,
+    IdentityProvider,
+    ObjectStore,
+    SecretProvider,
+    get_provider,
+    make_event_bus,
+    make_identity_provider,
+    make_object_store,
+    make_secret_provider,
+)
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,77 +55,80 @@ logging.basicConfig(
 
 
 class GlobalSecBaseAgent(ABC):
-    """Multi-region-aware base agent for the GlobalSec platform."""
+    """Cloud-agnostic, multi-region-aware base agent."""
 
     # Override in subclass
     AGENT_ID: str = "base-agent"
     AGENT_PORT: int = 8000
-    DEPLOYMENT_MODE: str = "regional"  # "regional" or "global"
+    DEPLOYMENT_MODE: str = "regional"  # "regional" | "global"
 
     def __init__(self) -> None:
         self.log = logging.getLogger(self.AGENT_ID)
-        self.region = os.getenv("GLOBALSEC_REGION", "global")
+        self.region = CloudConfig.region()
+        self.cloud_provider = get_provider()
         self.paperclip_url = os.getenv("PAPERCLIP_URL", "http://paperclip:9000")
-        self.servicebus_namespace = os.getenv("AZURE_SERVICEBUS_NAMESPACE")
-        self.keyvault_url = self._derive_keyvault_url()
-        self._credential: DefaultAzureCredential | None = None
-        self._secret_client: SecretClient | None = None
-        self._sb_client: ServiceBusClient | None = None
+
+        # Cloud abstraction handles — populated in __aenter__
+        self.secrets: SecretProvider | None = None
+        self.events: EventBus | None = None
+        self.objects: ObjectStore | None = None
+        self.identity: IdentityProvider | None = None
+
         self._running = False
 
-    def _derive_keyvault_url(self) -> str:
-        """Each region has its own Key Vault. Global agents use the global vault."""
-        if self.DEPLOYMENT_MODE == "global" or self.region == "global":
-            kv_name = "kv-globalsec-global-prod"
-        else:
-            kv_name = f"kv-globalsec-{self.region}-prod"
-        return os.getenv("AZURE_KEYVAULT_URL", f"https://{kv_name}.vault.azure.net")
-
     async def __aenter__(self):
-        self._credential = DefaultAzureCredential()
-        self._secret_client = SecretClient(
-            vault_url=self.keyvault_url, credential=self._credential
+        self.log.info(
+            f"Initializing {self.AGENT_ID} on cloud={self.cloud_provider} region={self.region}"
         )
-        self._sb_client = ServiceBusClient(
-            fully_qualified_namespace=self.servicebus_namespace,
-            credential=self._credential,
-        )
+        self.secrets = await make_secret_provider()
+        self.events = await make_event_bus()
+        self.objects = await make_object_store()
+        self.identity = await make_identity_provider()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self._sb_client:
-            await self._sb_client.close()
-        if self._secret_client:
-            await self._secret_client.close()
-        if self._credential:
-            await self._credential.close()
+        for component in (self.events, self.secrets, self.objects):
+            if component:
+                try:
+                    await component.close()
+                except Exception as exc:
+                    self.log.warning(f"Error closing component: {exc}")
+
+    # ------------------------------------------------------------------
+    # Cloud-agnostic helpers
+    # ------------------------------------------------------------------
 
     async def get_secret(self, secret_name: str) -> str:
-        """Fetch a secret from the region-appropriate Azure Key Vault."""
-        if not self._secret_client:
+        """Fetch a secret from the configured secret provider."""
+        if not self.secrets:
             raise RuntimeError("Agent not initialized — use 'async with' context")
-        secret = await self._secret_client.get_secret(secret_name)
-        return secret.value
+        return await self.secrets.get(secret_name)
+
+    def _topic_for(self, kind: str = "events") -> str:
+        """Build the topic name for this agent's events."""
+        ns = CloudConfig.event_bus_namespace()
+        scope = "global" if self.DEPLOYMENT_MODE == "global" else self.region
+        return f"{ns}-{kind}-{scope}"
 
     async def publish_event(self, event_type: str, payload: dict[str, Any]) -> None:
-        """Publish an event to the regional or global Service Bus topic."""
-        topic_name = (
-            "globalsec-events-global"
-            if self.DEPLOYMENT_MODE == "global"
-            else f"globalsec-events-{self.region}"
-        )
-        event = {
+        """Publish an event to the regional or global event bus."""
+        if not self.events:
+            raise RuntimeError("Agent not initialized — use 'async with' context")
+        envelope = {
             "source_agent": self.AGENT_ID,
             "event_type": event_type,
             "region": self.region,
+            "cloud_provider": self.cloud_provider,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "version": "1.0",
             "payload": payload,
         }
-        async with self._sb_client.get_topic_sender(topic_name) as sender:
-            msg = ServiceBusMessage(json.dumps(event))
-            await sender.send_messages(msg)
-        self.log.info(f"Published {event_type} to {topic_name}")
+        await self.events.publish(self._topic_for("events"), envelope)
+        self.log.info(f"Published {event_type}")
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
 
     async def register_with_paperclip(self) -> None:
         """Register this agent with the regional Paperclip orchestrator."""
@@ -114,6 +136,7 @@ class GlobalSecBaseAgent(ABC):
             "agent_id": self.AGENT_ID,
             "region": self.region,
             "deployment_mode": self.DEPLOYMENT_MODE,
+            "cloud_provider": self.cloud_provider,
             "port": self.AGENT_PORT,
             "status": "running",
             "started_at": datetime.now(timezone.utc).isoformat(),
@@ -136,16 +159,15 @@ class GlobalSecBaseAgent(ABC):
         self.log.error("Failed to register with Paperclip after 3 attempts")
 
     async def health_check(self) -> dict[str, Any]:
-        """Standard health response."""
         return {
             "agent_id": self.AGENT_ID,
             "region": self.region,
+            "cloud_provider": self.cloud_provider,
             "status": "running" if self._running else "stopped",
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
     async def report_metrics_loop(self) -> None:
-        """Continuously report metrics every 5 minutes."""
         while self._running:
             try:
                 metrics = await self.collect_metrics()
@@ -155,12 +177,15 @@ class GlobalSecBaseAgent(ABC):
             await asyncio.sleep(300)
 
     async def start(self) -> None:
-        """Bootstrap: register, start metrics loop, run main loop."""
         self._running = True
         await self.register_with_paperclip()
         loop = asyncio.get_event_loop()
         loop.add_signal_handler(signal.SIGTERM, lambda: setattr(self, "_running", False))
         await asyncio.gather(self.report_metrics_loop(), self.run())
+
+    # ------------------------------------------------------------------
+    # Subclass contract
+    # ------------------------------------------------------------------
 
     @abstractmethod
     async def run(self) -> None:

@@ -1,0 +1,1 @@
+"""GlobalSec agent platform."""

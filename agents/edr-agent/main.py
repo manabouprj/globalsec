@@ -3,9 +3,13 @@ GlobalSec EDR Agent — CrowdStrike Falcon Enterprise
 ====================================================
 
 Regional agent (one instance per region: apac, emea, amer, gcc, africa, me).
-Polls Falcon for detections, publishes alerts to regional Service Bus topic.
+Polls Falcon for detections, publishes alerts to the regional event bus.
 
-Required secrets in regional Key Vault:
+This agent is cloud-agnostic — it consumes only the GlobalSecBaseAgent abstractions
+(self.secrets, self.events, self.objects, self.identity) and runs unchanged on
+Azure / AWS / GCP / bare Kubernetes.
+
+Required secrets in the regional secret store:
 - crowdstrike-client-id
 - crowdstrike-client-secret
 - crowdstrike-base-url
