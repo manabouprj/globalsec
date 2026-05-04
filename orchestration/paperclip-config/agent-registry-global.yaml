@@ -1,0 +1,316 @@
+# GlobalSec — Global Agent Registry
+# This registry is consumed by the Global Paperclip control plane (Middle East).
+# Each region also has its own registry: agent-registry-{region}.yaml
+
+apiVersion: paperclip.globalsec.io/v1
+kind: GlobalAgentRegistry
+metadata:
+  name: globalsec-global
+  controlPlane: middle-east
+  azureRegion: qatarcentral
+spec:
+  globalAgents:
+    # ============ IDENTITY (global) ============
+    - id: entra-id-agent
+      tier: T0
+      domain: identity
+      port: 8001
+      replicas: 2
+      image: globalsecregistry.azurecr.io/entra-id-agent:1.0.0
+
+    - id: pim-agent
+      tier: T0
+      domain: identity
+      port: 8002
+      replicas: 2
+      image: globalsecregistry.azurecr.io/pim-agent:1.0.0
+
+    - id: pam-agent
+      tier: T1
+      domain: identity
+      port: 8003
+      replicas: 2
+      image: globalsecregistry.azurecr.io/pam-agent:1.0.0
+
+    # ============ ENDPOINT (global MDM) ============
+    - id: mdm-agent
+      tier: T1
+      domain: endpoint
+      port: 8011
+      replicas: 2
+      image: globalsecregistry.azurecr.io/mdm-agent:1.0.0
+
+    # ============ COMMUNICATION (global Teams Sec) ============
+    - id: teams-security-agent
+      tier: T1
+      domain: communication
+      port: 8021
+      replicas: 1
+      image: globalsecregistry.azurecr.io/teams-security-agent:1.0.0
+
+    # ============ NETWORK (global CDN) ============
+    - id: cdn-security-agent
+      tier: T2
+      domain: network
+      port: 8033
+      replicas: 1
+      image: globalsecregistry.azurecr.io/cdn-security-agent:1.0.0
+
+    # ============ APPLICATION (global) ============
+    - id: waf-bot-agent
+      tier: T0
+      domain: application
+      port: 8040
+      replicas: 2
+      image: globalsecregistry.azurecr.io/waf-bot-agent:1.0.0
+
+    - id: api-security-agent
+      tier: T1
+      domain: application
+      port: 8041
+      replicas: 1
+      image: globalsecregistry.azurecr.io/api-security-agent:1.0.0
+
+    - id: sast-agent
+      tier: T1
+      domain: application
+      port: 8042
+      replicas: 1
+      image: globalsecregistry.azurecr.io/sast-agent:1.0.0
+
+    - id: snyk-agent
+      tier: T1
+      domain: application
+      port: 8043
+      replicas: 1
+      image: globalsecregistry.azurecr.io/snyk-agent:1.0.0
+
+    - id: mtd-agent
+      tier: T2
+      domain: application
+      port: 8044
+      replicas: 1
+      image: globalsecregistry.azurecr.io/mtd-agent:1.0.0
+
+    # ============ DATA (global Insider Risk + residency) ============
+    - id: insider-risk-agent
+      tier: T1
+      domain: data
+      port: 8051
+      replicas: 1
+      image: globalsecregistry.azurecr.io/insider-risk-agent:1.0.0
+
+    - id: data-residency-agent
+      tier: T0
+      domain: data
+      port: 8053
+      replicas: 2
+      image: globalsecregistry.azurecr.io/data-residency-agent:1.0.0
+
+    # ============ DETECTION (global SIEM/SOAR/IR) ============
+    - id: siem-agent
+      tier: T0
+      domain: detection
+      port: 8060
+      replicas: 3
+      image: globalsecregistry.azurecr.io/siem-agent:1.0.0
+
+    - id: soar-agent
+      tier: T1
+      domain: detection
+      port: 8061
+      replicas: 2
+      image: globalsecregistry.azurecr.io/soar-agent:1.0.0
+
+    - id: incident-response-agent
+      tier: T0
+      domain: detection
+      port: 8062
+      replicas: 2
+      image: globalsecregistry.azurecr.io/incident-response-agent:1.0.0
+
+    # ============ CLOUD ============
+    - id: cspm-agent
+      tier: T0
+      domain: cloud
+      port: 8070
+      replicas: 2
+      image: globalsecregistry.azurecr.io/cspm-agent:1.0.0
+
+    - id: cwpp-agent
+      tier: T1
+      domain: cloud
+      port: 8071
+      replicas: 1
+      image: globalsecregistry.azurecr.io/cwpp-agent:1.0.0
+
+    - id: container-security-agent
+      tier: T1
+      domain: cloud
+      port: 8072
+      replicas: 1
+      image: globalsecregistry.azurecr.io/container-security-agent:1.0.0
+
+    # ============ THREAT INTEL ============
+    - id: threat-intel-agent
+      tier: T1
+      domain: threat-intel
+      port: 8080
+      replicas: 1
+      image: globalsecregistry.azurecr.io/threat-intel-agent:1.0.0
+
+    - id: brand-protection-agent
+      tier: T2
+      domain: threat-intel
+      port: 8081
+      replicas: 1
+      image: globalsecregistry.azurecr.io/brand-protection-agent:1.0.0
+
+    - id: deception-agent
+      tier: T2
+      domain: threat-intel
+      port: 8082
+      replicas: 1
+      image: globalsecregistry.azurecr.io/deception-agent:1.0.0
+
+    # ============ GOVERNANCE ============
+    - id: asset-management-agent
+      tier: T0
+      domain: governance
+      port: 8090
+      replicas: 2
+      image: globalsecregistry.azurecr.io/asset-management-agent:1.0.0
+
+    - id: vulnerability-agent
+      tier: T0
+      domain: governance
+      port: 8091
+      replicas: 2
+      image: globalsecregistry.azurecr.io/vulnerability-agent:1.0.0
+
+    - id: compliance-grc-agent
+      tier: T1
+      domain: governance
+      port: 8092
+      replicas: 1
+      image: globalsecregistry.azurecr.io/compliance-grc-agent:1.0.0
+
+    - id: risk-dashboard-agent
+      tier: T0
+      domain: governance
+      port: 8093
+      replicas: 2
+      image: globalsecregistry.azurecr.io/risk-dashboard-agent:1.0.0
+
+    - id: easm-agent
+      tier: T1
+      domain: governance
+      port: 8094
+      replicas: 1
+      image: globalsecregistry.azurecr.io/easm-agent:1.0.0
+
+    # ============ RESILIENCE ============
+    - id: crisis-comms-agent
+      tier: T2
+      domain: resilience
+      port: 8101
+      replicas: 1
+      image: globalsecregistry.azurecr.io/crisis-comms-agent:1.0.0
+
+    # ============ SPECIALIZED ============
+    - id: third-party-risk-agent
+      tier: T1
+      domain: specialized
+      port: 8110
+      replicas: 1
+      image: globalsecregistry.azurecr.io/third-party-risk-agent:1.0.0
+
+    - id: esg-agent
+      tier: T2
+      domain: specialized
+      port: 8112
+      replicas: 1
+      image: globalsecregistry.azurecr.io/esg-agent:1.0.0
+
+    # ============ INTEGRATION ============
+    - id: chat-interface
+      tier: T0
+      domain: integration
+      port: 8120
+      replicas: 3
+      image: globalsecregistry.azurecr.io/chat-interface:1.0.0
+
+  regionalAgents:
+    # These agents are deployed once per region (6 instances each)
+    - id: edr-agent
+      tier: T0
+      domain: endpoint
+      port: 8010
+      replicasPerRegion: 2
+    - id: email-security-agent
+      tier: T0
+      domain: communication
+      port: 8020
+      replicasPerRegion: 1
+    - id: dns-security-agent
+      tier: T0
+      domain: network
+      port: 8030
+      replicasPerRegion: 1
+    - id: sse-agent
+      tier: T1
+      domain: network
+      port: 8031
+      replicasPerRegion: 1
+    - id: network-detection-agent
+      tier: T1
+      domain: network
+      port: 8032
+      replicasPerRegion: 1
+    - id: dlp-agent
+      tier: T0
+      domain: data
+      port: 8050
+      replicasPerRegion: 1
+    - id: dspm-agent
+      tier: T1
+      domain: data
+      port: 8052
+      replicasPerRegion: 1
+    - id: backup-recovery-agent
+      tier: T1
+      domain: resilience
+      port: 8100
+      replicasPerRegion: 1
+    - id: ot-iot-agent
+      tier: T2
+      domain: specialized
+      port: 8111
+      replicasPerRegion: 0  # Only deploy where OT exists
+
+  regions:
+    - name: apac
+      azureRegion: southeastasia
+      hubLocation: Singapore
+      regionalLead: apac-security-lead@globalsec.internal
+    - name: emea
+      azureRegion: westeurope
+      hubLocation: Amsterdam
+      regionalLead: emea-security-lead@globalsec.internal
+    - name: amer
+      azureRegion: eastus2
+      hubLocation: Virginia
+      regionalLead: amer-security-lead@globalsec.internal
+    - name: gcc
+      azureRegion: uaenorth
+      hubLocation: Dubai
+      regionalLead: gcc-security-lead@globalsec.internal
+    - name: me
+      azureRegion: qatarcentral
+      hubLocation: Doha
+      regionalLead: me-security-lead@globalsec.internal
+      controlPlane: true
+    - name: africa
+      azureRegion: southafricanorth
+      hubLocation: Johannesburg
+      regionalLead: africa-security-lead@globalsec.internal
