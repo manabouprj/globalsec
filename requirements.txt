@@ -3,7 +3,7 @@
 # Bumped to address all known CVEs
 
 # === Core HTTP / async ===
-aiohttp==3.13.4
+aiohttp==3.14.1
 httpx==0.28.1
 requests==2.33.0
 
